@@ -260,9 +260,38 @@ The `Providers` array is where you define the different model providers you want
 
 - `name`: A unique name for the provider.
 - `api_base_url`: The full API endpoint for chat completions.
-- `api_key`: Your API key for the provider.
+- `api_key`: Your API key(s) for the provider. Can be a single string or an array of strings for automatic key rotation.
+- `api_key_strategy` (optional): Strategy for rotating multiple API keys. Available options:
+  - `"round-robin"` (default): Cycles through keys in order (key0 → key1 → key0 → ...)
+  - `"random"`: Randomly selects a key for each request
+  - `"failover"`: Always uses the first key, switches to backup keys only on failure
 - `models`: A list of model names available from this provider.
 - `transformer` (optional): Specifies transformers to process requests and responses.
+
+##### Multi-API Key Rotation
+
+To handle rate limiting and improve reliability, you can configure multiple API keys for a provider. The router will automatically rotate between keys and retry with different keys when encountering errors (429, 401, 403).
+
+**Example with multiple keys:**
+```json
+{
+  "name": "openai",
+  "api_base_url": "https://api.openai.com/v1/chat/completions",
+  "api_key": [
+    "sk-key1-xxxxxxxxxx",
+    "sk-key2-xxxxxxxxxx",
+    "sk-key3-xxxxxxxxxx"
+  ],
+  "api_key_strategy": "round-robin",
+  "models": ["gpt-5", "gpt-5-mini"]
+}
+```
+
+**How it works:**
+- **Normal operation**: Keys are selected based on the configured strategy
+- **On failure**: When a request fails with 429 (rate limit), 401 (unauthorized), or 403 (forbidden), the router automatically retries with the next available key
+- **Exhaustive retry**: All available keys are tried before giving up
+- **Logging**: Key rotation is logged for monitoring (key indices only, not actual keys)
 
 #### Transformers
 

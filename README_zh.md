@@ -209,9 +209,38 @@ ccr ui
 
 -   `name`: 提供商的唯一名称。
 -   `api_base_url`: 聊天补全的完整 API 端点。
--   `api_key`: 您提供商的 API 密钥。
+-   `api_key`: 您提供商的 API 密钥。可以是单个字符串或字符串数组（用于自动密钥轮换）。
+-   `api_key_strategy` (可选): 多个 API 密钥的轮换策略。可用选项：
+    -   `"round-robin"` (默认): 按顺序循环使用密钥 (key0 → key1 → key0 → ...)
+    -   `"random"`: 每次请求随机选择一个密钥
+    -   `"failover"`: 始终使用第一个密钥，仅在失败时切换到备用密钥
 -   `models`: 此提供商可用的模型名称列表。
 -   `transformer` (可选): 指定用于处理请求和响应的转换器。
+
+##### 多 API Key 轮换
+
+为了处理速率限制并提高可靠性，您可以为提供商配置多个 API 密钥。路由器将自动在密钥之间轮换，并在遇到错误（429、401、403）时使用不同的密钥重试。
+
+**多密钥配置示例：**
+```json
+{
+  "name": "openai",
+  "api_base_url": "https://api.openai.com/v1/chat/completions",
+  "api_key": [
+    "sk-key1-xxxxxxxxxx",
+    "sk-key2-xxxxxxxxxx",
+    "sk-key3-xxxxxxxxxx"
+  ],
+  "api_key_strategy": "round-robin",
+  "models": ["gpt-5", "gpt-5-mini"]
+}
+```
+
+**工作原理：**
+-   **正常运行**: 根据配置的策略选择密钥
+-   **失败时**: 当请求因 429（速率限制）、401（未授权）或 403（禁止访问）失败时，路由器会自动使用下一个可用密钥重试
+-   **穷尽重试**: 在放弃之前会尝试所有可用的密钥
+-   **日志记录**: 密钥轮换会被记录以便监控（仅记录密钥索引，不记录实际密钥）
 
 #### Transformers
 
